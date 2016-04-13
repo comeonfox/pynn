@@ -18,7 +18,8 @@ def cross_entropy(N, y, y_hat):
     # * means Hadamard product here, because both y and y_hat have
     # type of numpy.ndarry
     x = y * np.log(y_hat)
-    return -1.0 * np.sum(x) / N
+    cost = -1.0 * np.sum(x) / N
+    return cost
 
 class NN(object):
     """A basic neural network."""
@@ -41,16 +42,16 @@ class NN(object):
         self.wo = np.random.randn(self.hidden, self.output)
 
         # store predictions and labels for a batch
-        self.y = np.zeros((self.batch_size, self.output))
+        self.y = np.zeros(self.output)
 
         # store nodes activations
-        self.ao = np.zeros((self.batch_size, self.output))
-        self.ah = np.zeros((self.batch_size, self.hidden))
-        self.ai = np.zeros((self.batch_size, self.input))
+        self.ao = np.zeros(self.output)
+        self.ah = np.zeros(self.hidden)
+        self.ai = np.zeros(self.input)
 
         # store biases
-        self.bi = np.zeros((self.batch_size, self.hidden))
-        self.bh = np.zeros((self.batch_size, self.output))
+        self.bi = np.zeros(self.hidden)
+        self.bh = np.zeros(self.output)
 
 
     def feedForward(self, inputs=None):
@@ -59,10 +60,10 @@ class NN(object):
         self.ai = inputs
 
         # hidden activations
-        self.ah = np.tanh(np.dot(self.ai, self.wi)) # + self.bi)
+        self.ah = np.tanh(np.dot(self.ai, self.wi) + self.bi)
 
         # output activations
-        self.ao = softmax(np.dot(self.ah, self.wo)) # + self.bh)
+        self.ao = softmax(np.dot(self.ah, self.wo) + self.bh)
 
     def backPropagate(self):
         """ This is what happens in 1 batch.
@@ -71,20 +72,20 @@ class NN(object):
         :return: update weights and current error
         """
         delta3 = self.ao - self.y
-        delta2 = delta3.dot(self.wo.T) * (1 - np.power(self.ah, 2))
+        delta2 = delta3.reshape(1, len(delta3)).dot(self.wo.T) * (1 - np.power(self.ah, 2))
 
         # get gradients
         # TODO: add regularization to w1 and w2.
-        dw2 = np.dot(self.ah.T, delta3)
-        dw1 = np.dot(self.ai.T, delta2)
-        db1 = delta2
+        dw2 = np.dot(self.ah.reshape(len(self.ah), 1), delta3.reshape(1, len(delta3)))
+        dw1 = np.dot(self.ai.reshape(len(self.ai), 1), delta2)
+        db1 = delta2[0]
         db2 = delta3
 
         # update params
         self.wi -= self.epsilon * dw1
         self.wo -= self.epsilon * dw2
-        #self.bi -= self.epsilon * db1
-        #self.bh -= self.epsilon * db2
+        self.bi -= self.epsilon * db1
+        self.bh -= self.epsilon * db2
 
     def feed(self, Y, X):
         """A generator yields a matrix of shape (batch_size, input_dim)."""
@@ -93,10 +94,11 @@ class NN(object):
 
     def train(self):
         for _ in xrange(self.num_passes):
-            pos = 0
-            for __ in xrange(int(math.ceil(len(self.X) / self.batch_size))):
-                self.y = self.Y[pos:self.batch_size + pos]
-                inputs = self.X[pos:self.batch_size + pos, :]
+            #pos = 0
+            #for __ in xrange(int(math.ceil(len(self.X) / self.batch_size))):
+            for i in xrange(len(self.X)):
+                self.y = self.Y[i]
+                inputs = self.X[i]
                 self.feedForward(inputs)
                 self.backPropagate()
                 print cross_entropy(self.batch_size, self.y, self.ao)
